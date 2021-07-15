@@ -1,7 +1,7 @@
 /*
  * This file is part of hipSYCL, a SYCL implementation based on CUDA/HIP
  *
- * Copyright (c) 2018 Aksel Alpay
+ * Copyright (c) 2019-2021 Aksel Alpay and contributors
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,50 +25,43 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifndef HIPSYCL_HOST_TIMESTAMPED_EVENT_HPP
+#define HIPSYCL_HOST_TIMESTAMPED_EVENT_HPP
 
-#ifndef HIPSYCL_INFO_EVENT_HPP
-#define HIPSYCL_INFO_EVENT_HPP
-
-#include <cstdint>
-
-#include "../types.hpp"
-#include "param_traits.hpp"
+#include "hipSYCL/runtime/inorder_queue.hpp"
+#include "hipSYCL/runtime/instrumentation.hpp"
+#include "hipSYCL/runtime/event.hpp"
 
 namespace hipsycl {
-namespace sycl {
-namespace info {
+namespace rt {
 
-enum class event: int
-{
-  command_execution_status,
-  reference_count
+class host_timestamped_event {
+public:
+  host_timestamped_event() = default;
+
+  host_timestamped_event(inorder_queue* q)
+  : host_timestamped_event{q->insert_event()} {}
+
+  host_timestamped_event(std::shared_ptr<dag_node_event> evt) 
+  : _evt{evt} {
+    _evt->wait();
+    _time = profiler_clock::now();
+  }
+
+  std::shared_ptr<dag_node_event> get_event() const {
+    return _evt;
+  }
+
+  profiler_clock::time_point get_timestamp() const {
+    return _time;
+  }
+private:
+  std::shared_ptr<dag_node_event> _evt;
+  profiler_clock::time_point _time;
 };
 
-enum class event_command_status : int
-{
-  submitted,
-  running,
-  complete
-};
-
-enum class event_profiling : int
-{
-  command_submit,
-  command_start,
-  command_end
-};
-
-
-HIPSYCL_PARAM_TRAIT_RETURN_VALUE(event, event::command_execution_status, event_command_status);
-HIPSYCL_PARAM_TRAIT_RETURN_VALUE(event, event::reference_count, detail::u_int);
-
-HIPSYCL_PARAM_TRAIT_RETURN_VALUE(event_profiling, event_profiling::command_submit, uint64_t);
-HIPSYCL_PARAM_TRAIT_RETURN_VALUE(event_profiling, event_profiling::command_start, uint64_t);
-HIPSYCL_PARAM_TRAIT_RETURN_VALUE(event_profiling, event_profiling::command_end, uint64_t);
 
 }
 }
-}
-
 
 #endif

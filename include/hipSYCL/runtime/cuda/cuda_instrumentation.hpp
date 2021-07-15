@@ -1,7 +1,7 @@
 /*
  * This file is part of hipSYCL, a SYCL implementation based on CUDA/HIP
  *
- * Copyright (c) 2018 Aksel Alpay
+ * Copyright (c) 2019-2021 Aksel Alpay and contributors
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,50 +25,36 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifndef HIPSYCL_CUDA_INSTRUMENTATION_HPP
+#define HIPSYCL_CUDA_INSTRUMENTATION_HPP
 
-#ifndef HIPSYCL_INFO_EVENT_HPP
-#define HIPSYCL_INFO_EVENT_HPP
-
-#include <cstdint>
-
-#include "../types.hpp"
-#include "param_traits.hpp"
+#include "cuda_event.hpp"
+#include "../generic/host_timestamped_event.hpp"
+#include "../generic/timestamp_delta_instrumentation.hpp"
+#include "../instrumentation.hpp"
+#include "hipSYCL/runtime/event.hpp"
+#include <chrono>
 
 namespace hipsycl {
-namespace sycl {
-namespace info {
+namespace rt {
 
-enum class event: int
-{
-  command_execution_status,
-  reference_count
+class cuda_event_time_delta {
+public:
+  profiler_clock::duration operator()(std::shared_ptr<dag_node_event> t0,
+                                      std::shared_ptr<dag_node_event> t1) const;
 };
 
-enum class event_command_status : int
-{
-  submitted,
-  running,
-  complete
-};
+using cuda_submission_timestamp = simple_submission_timestamp;
 
-enum class event_profiling : int
-{
-  command_submit,
-  command_start,
-  command_end
-};
+using cuda_execution_start_timestamp =
+    timestamp_delta_instrumentation<instrumentations::execution_start_timestamp,
+                                    cuda_event_time_delta>;
 
-
-HIPSYCL_PARAM_TRAIT_RETURN_VALUE(event, event::command_execution_status, event_command_status);
-HIPSYCL_PARAM_TRAIT_RETURN_VALUE(event, event::reference_count, detail::u_int);
-
-HIPSYCL_PARAM_TRAIT_RETURN_VALUE(event_profiling, event_profiling::command_submit, uint64_t);
-HIPSYCL_PARAM_TRAIT_RETURN_VALUE(event_profiling, event_profiling::command_start, uint64_t);
-HIPSYCL_PARAM_TRAIT_RETURN_VALUE(event_profiling, event_profiling::command_end, uint64_t);
+using cuda_execution_finish_timestamp =
+    timestamp_delta_instrumentation<instrumentations::execution_finish_timestamp,
+                                    cuda_event_time_delta>;
 
 }
 }
-}
-
 
 #endif

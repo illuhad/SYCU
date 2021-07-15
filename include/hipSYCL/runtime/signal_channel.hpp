@@ -1,7 +1,7 @@
 /*
  * This file is part of hipSYCL, a SYCL implementation based on CUDA/HIP
  *
- * Copyright (c) 2018 Aksel Alpay
+ * Copyright (c) 2021 Aksel Alpay
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,50 +25,43 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifndef HIPSYCL_SIGNAL_CHANNEL_HPP
+#define HIPSYCL_SIGNAL_CHANNEL_HPP
 
-#ifndef HIPSYCL_INFO_EVENT_HPP
-#define HIPSYCL_INFO_EVENT_HPP
+#include <future>
+#include <chrono>
 
-#include <cstdint>
-
-#include "../types.hpp"
-#include "param_traits.hpp"
 
 namespace hipsycl {
-namespace sycl {
-namespace info {
+namespace rt {
 
-enum class event: int
-{
-  command_execution_status,
-  reference_count
+class signal_channel {
+public:
+  signal_channel() {
+    _shared_future = _promise.get_future().share();
+  }
+
+  void signal() {
+    _promise.set_value(true);
+  }
+
+  void wait() {
+    auto future = _shared_future;
+    future.wait();
+  }
+
+  bool has_signalled() const {
+    auto future = _shared_future;
+    return future.wait_for(std::chrono::seconds(0)) ==
+           std::future_status::ready;
+  }
+
+private:
+  std::promise<bool> _promise;
+  std::shared_future<bool> _shared_future;
 };
-
-enum class event_command_status : int
-{
-  submitted,
-  running,
-  complete
-};
-
-enum class event_profiling : int
-{
-  command_submit,
-  command_start,
-  command_end
-};
-
-
-HIPSYCL_PARAM_TRAIT_RETURN_VALUE(event, event::command_execution_status, event_command_status);
-HIPSYCL_PARAM_TRAIT_RETURN_VALUE(event, event::reference_count, detail::u_int);
-
-HIPSYCL_PARAM_TRAIT_RETURN_VALUE(event_profiling, event_profiling::command_submit, uint64_t);
-HIPSYCL_PARAM_TRAIT_RETURN_VALUE(event_profiling, event_profiling::command_start, uint64_t);
-HIPSYCL_PARAM_TRAIT_RETURN_VALUE(event_profiling, event_profiling::command_end, uint64_t);
 
 }
 }
-}
-
 
 #endif

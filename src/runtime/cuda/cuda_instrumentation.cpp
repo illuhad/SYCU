@@ -1,7 +1,7 @@
 /*
  * This file is part of hipSYCL, a SYCL implementation based on CUDA/HIP
  *
- * Copyright (c) 2018 Aksel Alpay
+ * Copyright (c) 2021 Aksel Alpay and contributors
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,50 +25,41 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "hipSYCL/runtime/cuda/cuda_instrumentation.hpp"
+#include "hipSYCL/runtime/error.hpp"
+#include "hipSYCL/runtime/cuda/cuda_event.hpp"
 
-#ifndef HIPSYCL_INFO_EVENT_HPP
-#define HIPSYCL_INFO_EVENT_HPP
+#include <cuda_runtime_api.h>
 
-#include <cstdint>
-
-#include "../types.hpp"
-#include "param_traits.hpp"
+#include <cassert>
+#include <memory>
 
 namespace hipsycl {
-namespace sycl {
-namespace info {
+namespace rt {
 
-enum class event: int
-{
-  command_execution_status,
-  reference_count
-};
+profiler_clock::duration
+cuda_event_time_delta::operator()(std::shared_ptr<dag_node_event> t0,
+                                  std::shared_ptr<dag_node_event> t1) const {
+  assert(t0 && t0->is_complete());
+  assert(t1 && t1->is_complete());
 
-enum class event_command_status : int
-{
-  submitted,
-  running,
-  complete
-};
+  cudaEvent_t t0_evt = cast<cuda_node_event>(t0.get())->get_event();
+  cudaEvent_t t1_evt = cast<cuda_node_event>(t1.get())->get_event();
+  
+  float ms = 0.0f;
+  cudaError_t err = cudaEventElapsedTime(&ms, t0_evt, t1_evt);
 
-enum class event_profiling : int
-{
-  command_submit,
-  command_start,
-  command_end
-};
+  if (err != cudaSuccess) {
+    register_error(
+        __hipsycl_here(),
+        error_info{"cuda_event_time_delta: cudaEventElapsedTime() failed",
+                   error_code{"CUDA", err}});
+  }
 
-
-HIPSYCL_PARAM_TRAIT_RETURN_VALUE(event, event::command_execution_status, event_command_status);
-HIPSYCL_PARAM_TRAIT_RETURN_VALUE(event, event::reference_count, detail::u_int);
-
-HIPSYCL_PARAM_TRAIT_RETURN_VALUE(event_profiling, event_profiling::command_submit, uint64_t);
-HIPSYCL_PARAM_TRAIT_RETURN_VALUE(event_profiling, event_profiling::command_start, uint64_t);
-HIPSYCL_PARAM_TRAIT_RETURN_VALUE(event_profiling, event_profiling::command_end, uint64_t);
+  return std::chrono::round<profiler_clock::duration>(
+      std::chrono::duration<float, std::milli>{ms});
+}
 
 }
 }
-}
 
-
-#endif

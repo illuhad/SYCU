@@ -1,7 +1,7 @@
 /*
  * This file is part of hipSYCL, a SYCL implementation based on CUDA/HIP
  *
- * Copyright (c) 2018 Aksel Alpay
+ * Copyright (c) 2019-2020 Aksel Alpay and contributors
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,50 +25,45 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifndef HIPSYCL_OMP_INSTRUMENTATION_HPP
+#define HIPSYCL_OMP_INSTRUMENTATION_HPP
 
-#ifndef HIPSYCL_INFO_EVENT_HPP
-#define HIPSYCL_INFO_EVENT_HPP
+#include <condition_variable>
+#include <mutex>
 
-#include <cstdint>
-
-#include "../types.hpp"
-#include "param_traits.hpp"
+#include "hipSYCL/runtime/signal_channel.hpp"
+#include "omp_event.hpp"
+#include "../instrumentation.hpp"
 
 namespace hipsycl {
-namespace sycl {
-namespace info {
+namespace rt {
 
-enum class event: int
-{
-  command_execution_status,
-  reference_count
+using omp_submission_timestamp = simple_submission_timestamp;
+
+class omp_execution_start_timestamp
+    : public instrumentations::execution_start_timestamp {
+public:
+  virtual profiler_clock::time_point get_time_point() const override;
+  virtual void wait() const override;
+  void record_time();
+private:
+  profiler_clock::time_point _time;
+  mutable signal_channel _signal;
 };
 
-enum class event_command_status : int
-{
-  submitted,
-  running,
-  complete
+class omp_execution_finish_timestamp
+    : public instrumentations::execution_finish_timestamp {
+public:
+  virtual profiler_clock::time_point get_time_point() const override;
+
+  virtual void wait() const override;
+  void record_time();
+private:
+  profiler_clock::time_point _time;
+  mutable signal_channel _signal;
 };
-
-enum class event_profiling : int
-{
-  command_submit,
-  command_start,
-  command_end
-};
-
-
-HIPSYCL_PARAM_TRAIT_RETURN_VALUE(event, event::command_execution_status, event_command_status);
-HIPSYCL_PARAM_TRAIT_RETURN_VALUE(event, event::reference_count, detail::u_int);
-
-HIPSYCL_PARAM_TRAIT_RETURN_VALUE(event_profiling, event_profiling::command_submit, uint64_t);
-HIPSYCL_PARAM_TRAIT_RETURN_VALUE(event_profiling, event_profiling::command_start, uint64_t);
-HIPSYCL_PARAM_TRAIT_RETURN_VALUE(event_profiling, event_profiling::command_end, uint64_t);
 
 }
 }
-}
-
 
 #endif
